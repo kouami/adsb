@@ -5,6 +5,12 @@
  */
 package com.adsb;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  *
  * @author U329022
@@ -26,7 +32,6 @@ public class ADSBMessageUtils {
     public static final int DATA_FRAME_LENTGH = 56;       //Data frame
 
     public static final int PARITY_CHECK_LENGTH = 24; // Parity Check
-    
 
     /**
      * Within the data frame, another import value is the Type Code. it tells
@@ -34,8 +39,21 @@ public class ADSBMessageUtils {
      * bits)
      */
     public static final int DATA_FRAME_TYPE_CODE_LENTGH = 5;
-    
-    public static String getTypecode(String data){
+
+    private static final Map<Integer, String> CODE2ID = new HashMap<>();
+    private static final String CHARSET = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ#####_###############0123456789######";
+
+    static {
+
+        for (int index = 0; index < CHARSET.length(); index++) {
+            if (!"#".equals(Character.toString(CHARSET.charAt(index)))) {
+                CODE2ID.put(new Integer(index), Character.toString(CHARSET.charAt(index)));
+            }
+        }
+        System.out.println(CODE2ID.toString());
+    }
+
+    public static String getTypecode(String data) {
         String message = null;
         if (ensureDataSize(data)) {
             int offsetStart = DOWNLINK_FORMAT_LENGTH + MESSAGE_SUB_TYPE_LENGTH + ICAO_AIRCRAFT_ADDRESS + 1;
@@ -65,7 +83,7 @@ public class ADSBMessageUtils {
     public static String getDF(String data) {
         String message = null;
         if (ensureDataSize(data)) {
-            message = data.substring(0,5);
+            message = data.substring(0, 5);
         }
         return message;
     }
@@ -93,7 +111,7 @@ public class ADSBMessageUtils {
         if (ensureDataSize(data)) {
             int offsetStart = DOWNLINK_FORMAT_LENGTH + MESSAGE_SUB_TYPE_LENGTH + 1;
             //message = data.substring(offsetStart, ICAO_AIRCRAFT_ADDRESS);
-            message = data.substring(8,32);
+            message = data.substring(8, 32);
         }
         return message;
     }
@@ -127,19 +145,46 @@ public class ADSBMessageUtils {
         }
         return message;
     }
-    
-    public static int getADSBMessageType(String data){
-        
+
+    private static List<String> splitEqually(String text, int size) {
+        // Give the list the right capacity to start with. You could use an array
+        // instead if you wanted.
+        List<String> ret = new ArrayList<String>((text.length() + size - 1) / size);
+
+        for (int start = 0; start < text.length(); start += size) {
+            ret.add(text.substring(start, Math.min(text.length(), start + size)));
+        }
+        return ret;
+    }
+
+    public static String getAircraftIdentifier(String data) {
+        String dataFrame = getDataFrame(data);
+        if (dataFrame != null) {
+            // Skip the Type Code bits (5 bits ) and 3 more bits  
+            dataFrame = dataFrame.substring(8);
+        }
+
+        List<String> ids = splitEqually(dataFrame, 6);
+        StringBuilder aircraftId = new StringBuilder();
+        for (int i = 0; i < ids.size(); i++) {
+            aircraftId.append(CODE2ID.get(ADSBUtils.binaryToInteger(ids.get(i))));
+        }
+
+        return aircraftId.toString();
+    }
+
+    public static int getADSBMessageType(String data) {
+
         int df = ADSBUtils.binaryToInteger(getDF(data));
         int typeCode = ADSBUtils.binaryToInteger(getTypecode(data));
-        
-        if(df == 17){
-            switch(typeCode){
+
+        if (df == 17) {
+            switch (typeCode) {
                 case 1:
                 case 2:
                 case 3:
                 case 4:
-                    //return Aircraft Identification
+                    //return getAircraftIdentifier()
                     break;
                 case 5:
                 case 6:
@@ -190,9 +235,9 @@ public class ADSBMessageUtils {
                 case 31:
                     // Aircraft Operation status
                     break;
-                    
+
                 default:
-                    
+
             }
         }
         return 0;

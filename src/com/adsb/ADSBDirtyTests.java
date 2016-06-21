@@ -30,6 +30,7 @@ public class ADSBDirtyTests {
         System.out.println("Data Frame :: " + ADSBMessageUtils.getDataFrame(message));
         System.out.println("Parity Check :: " + ADSBMessageUtils.getPC(message));
         System.out.println("Type Code :: " + ADSBMessageUtils.getTypecode(message));
+        System.out.println("Aircraft Identifier :: " + ADSBMessageUtils.getAircraftIdentifier(message));
     }
     
 }
