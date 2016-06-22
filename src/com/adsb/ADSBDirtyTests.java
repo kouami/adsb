@@ -47,6 +47,10 @@ public class ADSBDirtyTests {
         System.out.println("LONGCPR " + ADSBMessageUtils.getLongitudeCPR(message3));
         System.out.println("Latitude Index " + ADSBMessageUtils.getLatitudeIndex(message2, message3));
         
+        //System.out.println("Get Altitude " + ADSBMessageUtils.getAltitude(message2, message3));
+        
+        System.out.println("Get Position " + ADSBMessageUtils.getCPR2Position(message2, message3));
+        
         
     }
     

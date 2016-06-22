@@ -42,9 +42,14 @@ public class ADSBMessageUtils {
 
     private static final Map<Integer, String> CODE2ID = new HashMap<>();
     private static final String CHARSET = "#ABCDEFGHIJKLMNOPQRSTUVWXYZ#####_###############0123456789######";
-    
+
     private static double latCPREven = 0.0;
     private static double latCPROdd = 0.0;
+    private static double lonCPREven = 0.0;
+    private static double lonCPROdd = 0.0;
+
+    private static int timeStampEven = 0;
+    private static int timeStampOdd = 0;
 
     static {
 
@@ -202,67 +207,170 @@ public class ADSBMessageUtils {
     }
 
     /**
-     * 
+     *
      * @param bitString
-     * @return 
+     * @return
      */
     public static double getLatitudeCPR(String bitString) {
         double latCPR = ADSBUtils.binaryToInteger(bitString.substring(54, 71));
         //System.out.println("LAT CPR " + latCPR);
-        
+
         return latCPR / 131072;
     }
 
     /**
-     * 
+     *
      * @param bitString
-     * @return 
+     * @return
      */
     public static double getLongitudeCPR(String bitString) {
         double longCPR = ADSBUtils.binaryToInteger(bitString.substring(71, 88));
-        //System.out.println("LON CPR " + longCPR);
+        //System.out.println("LON CPR #### " + longCPR);
         return longCPR / 131072;
-    }
-    
-    /**
-     * 
-     * @param bitString1
-     * @param bitString2
-     * @return 
-     */
-    public static double getLatitudeIndex(String bitString1, String bitString2) {
-        
-        double latitudeIndex = -1;
-    
-        
-        if(isEven(bitString1)){
-            setLatCPREven(getLatitudeCPR(bitString1));
-            setLatCPROdd(getLatitudeCPR(bitString2));
-        } else if (isEven(bitString2)){
-            setLatCPREven(getLatitudeCPR(bitString2));
-            setLatCPROdd(getLatitudeCPR(bitString1));
-        }
-        
-        latitudeIndex = Math.floor((59 * getLatCPREven()) - (60 * getLatCPROdd()) + 0.5);
-        return latitudeIndex;
-    }
-    
-    public static double getLatitude(String bitString1, String bitString2){
-        
-        double DLat_EVEN = 360.0 / 60;
-        double DLat_ODD  = 360.0 / 59;
-        double latEven = 0.0;
-        double latOdd = 0.0;
-        
-        double latIndex = getLatitudeIndex(bitString1, bitString2);
-        //latEven = DLat_EVEN * (Math.mo)
-        return 0.0;
     }
 
     /**
-     * 
+     *
+     * @param bitString1
+     * @param bitString2
+     * @return
+     */
+    public static double getLatitudeIndex(String bitString1, String bitString2) {
+
+        double latitudeIndex = -1;
+
+        if (isEven(bitString1)) {
+            setLatCPREven(getLatitudeCPR(bitString1));
+            setLatCPROdd(getLatitudeCPR(bitString2));
+            setLonCPREven(getLongitudeCPR(bitString1));
+            setLonCPROdd(getLongitudeCPR(bitString2));
+            setTimeStampEven(ADSBUtils.binaryToInteger(Character.toString(bitString1.charAt(52))));
+            setTimeStampOdd(ADSBUtils.binaryToInteger(Character.toString(bitString2.charAt(52))));
+        } else if (isEven(bitString2)) {
+            setLatCPREven(getLatitudeCPR(bitString2));
+            setLatCPROdd(getLatitudeCPR(bitString1));
+            setLonCPREven(getLongitudeCPR(bitString2));
+            setLonCPROdd(getLongitudeCPR(bitString1));
+            setTimeStampEven(ADSBUtils.binaryToInteger(Character.toString(bitString2.charAt(52))));
+            setTimeStampOdd(ADSBUtils.binaryToInteger(Character.toString(bitString1.charAt(52))));
+        }
+
+        latitudeIndex = Math.floor((59 * getLatCPREven()) - (60 * getLatCPROdd()) + 0.5);
+        return latitudeIndex;
+    }
+
+    public static Map getCPR2Position(String bitString1, String bitString2) {
+
+        double DLat_EVEN = 360.0 / 60;
+        double DLat_ODD = 360.0 / 59;
+        double latEven = 0.0;
+        double latOdd = 0.0;
+        double ni = 0.0;
+        double m = 0.0;
+
+        double latitude = 0.0;
+        double longitude = 0.0;
+
+        Map<String, Double> position = new HashMap<>();
+
+        double latIndex = getLatitudeIndex(bitString1, bitString2);
+        latEven = DLat_EVEN * ((latIndex % 60) + getLatCPREven());
+        if (latEven >= 270) {
+            latEven = latEven - 360;
+        }
+
+        latOdd = DLat_ODD * ((latIndex % 59) + getLatCPROdd());
+        if (latOdd >= 270) {
+            latOdd = latOdd - 360;
+        }
+
+        // check if both are in the same latitude zone, exit if not
+        if (cprNL(latEven) != cprNL(latOdd)) {
+            return null;
+        }
+
+        //compute ni, longitude index m, and longitude
+        if (getTimeStampEven() > getTimeStampOdd()) {
+            
+            ni = cprN(latEven, 0);
+            m = Math.floor(getLonCPREven() * (cprNL(latEven) - 1) - getLonCPROdd() * cprNL(latEven) + 0.5);
+            longitude = (360.0 / ni) * (m % ni + getLonCPREven());
+            latitude = latEven;
+            
+            
+        } else {
+            
+            ni = cprN(latOdd, 1);
+            m = Math.floor(getLonCPREven() * (cprNL(latOdd) - 1) - getLonCPROdd() * cprNL(latOdd) + 0.5);
+            longitude = (360.0 / ni) * (m % ni + getLonCPROdd());
+            latitude = latOdd;
+            
+        }
+
+        if (longitude > 180) {
+            longitude = longitude - 360;
+        }
+        
+        // Round them off to 5 decimal place
+        latitude = (double) Math.round(latitude * 100000) / 100000;
+        longitude = (double) Math.round(longitude * 100000) / 100000;
+        
+        position.put("LAT", latitude);
+        position.put("LON", longitude);
+        position.put("ALT", getAltitude(bitString1, bitString2));
+        
+        System.out.println("LAT ::: " + position.get("LAT"));
+        System.out.println("LON ::: " + position.get("LON"));
+        System.out.println("ALT ::: " + position.get("ALT"));
+        
+        return position;
+    }
+
+    private static int cprNL(double latitude) {
+
+        if (latitude != 90 || latitude != -90) {
+            int nz = 60;
+            double a = 1 - Math.cos(Math.PI * 2 / nz);
+            double b = Math.pow(Math.cos(Math.PI / 180.0 * Math.abs(latitude)),2);
+            double nl = 2 * Math.PI / (Math.acos(1 - a / b));
+            return (int)nl;
+        }
+
+        return 1;
+    }
+    
+    
+    private static double cprN(double latitude, double isOdd) {
+
+        double nl = cprNL(latitude) - isOdd;
+        if (nl > 1) {
+            return nl;
+        }
+        return 1;
+    }
+    
+    public static double getAltitude(String bitString1, String bitString2){
+        double altitude = 0.0;
+        String altitudeFrameBits = null;
+        String qBit = "";
+        if(bitString1 != null && bitString2 != null && bitString1.length() == bitString2.length()){
+            //altitude = ADSBUtils.binaryToInteger(bitString1.substring(40, 52));
+            qBit = Character.toString(bitString1.charAt(47));
+            if(qBit != null && qBit.equals("1")){
+                altitudeFrameBits = bitString1.substring(40,47).concat(bitString1.substring(48, 52));
+            } else {
+                return 0.0;
+            }
+            altitude = (ADSBUtils.binaryToInteger(altitudeFrameBits) * 25) - 1000;
+            
+        }
+        return altitude;
+    }
+
+    /**
+     *
      * @param data
-     * @return 
+     * @return
      */
     public static int getADSBMessageType(String data) {
 
@@ -361,5 +469,61 @@ public class ADSBMessageUtils {
     public static void setLatCPROdd(double aLatCPROdd) {
         latCPROdd = aLatCPROdd;
     }
-    
+
+    /**
+     * @return the timeStampEven
+     */
+    public static int getTimeStampEven() {
+        return timeStampEven;
+    }
+
+    /**
+     * @param aTimeStampEven the timeStampEven to set
+     */
+    public static void setTimeStampEven(int aTimeStampEven) {
+        timeStampEven = aTimeStampEven;
+    }
+
+    /**
+     * @return the timeStampOdd
+     */
+    public static int getTimeStampOdd() {
+        return timeStampOdd;
+    }
+
+    /**
+     * @param aTimeStampOdd the timeStampOdd to set
+     */
+    public static void setTimeStampOdd(int aTimeStampOdd) {
+        timeStampOdd = aTimeStampOdd;
+    }
+
+    /**
+     * @return the lonCPREven
+     */
+    public static double getLonCPREven() {
+        return lonCPREven;
+    }
+
+    /**
+     * @param aLonCPREven the lonCPREven to set
+     */
+    public static void setLonCPREven(double aLonCPREven) {
+        lonCPREven = aLonCPREven;
+    }
+
+    /**
+     * @return the lonCPROdd
+     */
+    public static double getLonCPROdd() {
+        return lonCPROdd;
+    }
+
+    /**
+     * @param aLonCPROdd the lonCPROdd to set
+     */
+    public static void setLonCPROdd(double aLonCPROdd) {
+        lonCPROdd = aLonCPROdd;
+    }
+
 }
