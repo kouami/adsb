@@ -10,8 +10,12 @@ package com.adsb;
  * @author U329022
  */
 public class ADSBDirtyTests {
+    
+    //https://developer.android.com/guide/topics/connectivity/usb/host.html
 
     //http://adsb-decode-guide.readthedocs.org/en/latest/index.html
+    
+    //https://www.sussex.ac.uk/webteam/gateway/file.php?name=coote-proj.pdf&site=20
     
     /**
      * @param args the command line arguments
@@ -31,6 +35,19 @@ public class ADSBDirtyTests {
         System.out.println("Parity Check :: " + ADSBMessageUtils.getPC(message));
         System.out.println("Type Code :: " + ADSBMessageUtils.getTypecode(message));
         System.out.println("Aircraft Identifier :: " + ADSBMessageUtils.getAircraftIdentifier(message));
+        
+        String message2 = ADSBUtils.hexToBinary("8D40621D58C382D690C8AC2863A7");
+        System.out.println("Is Frame Even ? " + ADSBMessageUtils.isEven(message2));
+        System.out.println("LATCPR " + ADSBMessageUtils.getLatitudeCPR(message2));
+        System.out.println("LONGCPR " + ADSBMessageUtils.getLongitudeCPR(message2));
+        
+        String message3 = ADSBUtils.hexToBinary("8D40621D58C386435CC412692AD6");
+        System.out.println("Is Frame Even ? " + ADSBMessageUtils.isEven(message3));
+        System.out.println("LATCPR " + ADSBMessageUtils.getLatitudeCPR(message3));
+        System.out.println("LONGCPR " + ADSBMessageUtils.getLongitudeCPR(message3));
+        System.out.println("Latitude Index " + ADSBMessageUtils.getLatitudeIndex(message2, message3));
+        
+        
     }
     
 }
