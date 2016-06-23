@@ -12,6 +12,8 @@ package com.adsb;
 public class ADSBDirtyTests {
     
     //https://developer.android.com/guide/topics/connectivity/usb/host.html
+    //http://mobilemerit.com/android-app-for-usb-host-with-source-code/
+    //https://gist.github.com/archeg/8333021   // read from usb devices
 
     //http://adsb-decode-guide.readthedocs.org/en/latest/index.html
     

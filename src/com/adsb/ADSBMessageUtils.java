@@ -31,6 +31,8 @@ public class ADSBMessageUtils {
     public static final int DATA_FRAME_LENTGH = 56;       //Data frame
 
     public static final int PARITY_CHECK_LENGTH = 24; // Parity Check
+    
+    public static final int CPR_ODD_EVEN_FRAME_FLAG = 53; // CPR odd/even frame flag
 
     /**
      * Within the data frame, another import value is the Type Code. it tells
@@ -90,7 +92,7 @@ public class ADSBMessageUtils {
     public static String getDF(String data) {
         String message = null;
         if (ensureDataSize(data)) {
-            message = data.substring(0, 5);
+            message = data.substring(0, DOWNLINK_FORMAT_LENGTH);
         }
         return message;
     }
@@ -103,7 +105,7 @@ public class ADSBMessageUtils {
     public static String getCA(String data) {
         String message = null;
         if (ensureDataSize(data)) {
-            message = data.substring(5, 8);
+            message = data.substring(DOWNLINK_FORMAT_LENGTH, DOWNLINK_FORMAT_LENGTH + MESSAGE_SUB_TYPE_LENGTH);
         }
         return message;
     }
@@ -116,9 +118,9 @@ public class ADSBMessageUtils {
     public static String getICAO24(String data) {
         String message = null;
         if (ensureDataSize(data)) {
-            int offsetStart = DOWNLINK_FORMAT_LENGTH + MESSAGE_SUB_TYPE_LENGTH + 1;
+            int offsetStart = DOWNLINK_FORMAT_LENGTH + MESSAGE_SUB_TYPE_LENGTH; // 8
             //message = data.substring(offsetStart, ICAO_AIRCRAFT_ADDRESS);
-            message = data.substring(8, 32);
+            message = data.substring(offsetStart, offsetStart + ICAO_AIRCRAFT_ADDRESS);
         }
         return message;
     }
@@ -131,9 +133,9 @@ public class ADSBMessageUtils {
     public static String getDataFrame(String data) {
         String message = null;
         if (ensureDataSize(data)) {
-            int offsetStart = DOWNLINK_FORMAT_LENGTH + MESSAGE_SUB_TYPE_LENGTH + ICAO_AIRCRAFT_ADDRESS + 1;
+            int offsetStart = DOWNLINK_FORMAT_LENGTH + MESSAGE_SUB_TYPE_LENGTH + ICAO_AIRCRAFT_ADDRESS; // 32
             //message = data.substring(offsetStart, DATA_FRAME_LENTGH);
-            message = data.substring(32, 88);
+            message = data.substring(offsetStart, offsetStart + DATA_FRAME_LENTGH);
         }
         return message;
     }
@@ -146,9 +148,9 @@ public class ADSBMessageUtils {
     public static String getPC(String data) {
         String message = null;
         if (ensureDataSize(data)) {
-            int offsetStart = DOWNLINK_FORMAT_LENGTH + MESSAGE_SUB_TYPE_LENGTH + ICAO_AIRCRAFT_ADDRESS + PARITY_CHECK_LENGTH + 1;
+            int offsetStart = DOWNLINK_FORMAT_LENGTH + MESSAGE_SUB_TYPE_LENGTH + ICAO_AIRCRAFT_ADDRESS + DATA_FRAME_LENTGH; // 88
             //message = data.substring(offsetStart, PARITY_CHECK_LENGTH);
-            message = data.substring(88, 112);
+            message = data.substring(offsetStart, offsetStart + PARITY_CHECK_LENGTH);
         }
         return message;
     }
@@ -156,7 +158,7 @@ public class ADSBMessageUtils {
     private static List<String> splitEqually(String text, int size) {
         // Give the list the right capacity to start with. You could use an array
         // instead if you wanted.
-        List<String> ret = new ArrayList<String>((text.length() + size - 1) / size);
+        List<String> ret = new ArrayList<>((text.length() + size - 1) / size);
 
         for (int start = 0; start < text.length(); start += size) {
             ret.add(text.substring(start, Math.min(text.length(), start + size)));
@@ -173,8 +175,8 @@ public class ADSBMessageUtils {
 
         List<String> ids = splitEqually(dataFrame, 6);
         StringBuilder aircraftId = new StringBuilder();
-        for (int i = 0; i < ids.size(); i++) {
-            aircraftId.append(CODE2ID.get(ADSBUtils.binaryToInteger(ids.get(i))));
+        for (String id : ids) {
+            aircraftId.append(CODE2ID.get(ADSBUtils.binaryToInteger(id)));
         }
 
         String callSign = aircraftId.toString().replaceAll("#", "");
@@ -202,7 +204,7 @@ public class ADSBMessageUtils {
      * @return
      */
     public static boolean isEven(String bitString) {
-        return Character.toString(bitString.charAt(53)).equals("0");
+        return Character.toString(bitString.charAt(CPR_ODD_EVEN_FRAME_FLAG)).equals("0");
     }
 
     /**
@@ -212,8 +214,6 @@ public class ADSBMessageUtils {
      */
     public static double getLatitudeCPR(String bitString) {
         double latCPR = ADSBUtils.binaryToInteger(bitString.substring(54, 71));
-        //System.out.println("LAT CPR " + latCPR);
-
         return latCPR / 131072;
     }
 
@@ -224,7 +224,6 @@ public class ADSBMessageUtils {
      */
     public static double getLongitudeCPR(String bitString) {
         double longCPR = ADSBUtils.binaryToInteger(bitString.substring(71, 88));
-        //System.out.println("LON CPR #### " + longCPR);
         return longCPR / 131072;
     }
 
