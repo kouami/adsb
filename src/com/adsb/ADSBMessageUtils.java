@@ -6,7 +6,6 @@
 package com.adsb;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -291,38 +290,37 @@ public class ADSBMessageUtils {
 
         //compute ni, longitude index m, and longitude
         if (getTimeStampEven() > getTimeStampOdd()) {
-            
+
             ni = cprN(latEven, 0);
             m = Math.floor(getLonCPREven() * (cprNL(latEven) - 1) - getLonCPROdd() * cprNL(latEven) + 0.5);
             longitude = (360.0 / ni) * (m % ni + getLonCPREven());
             latitude = latEven;
-            
-            
+
         } else {
-            
+
             ni = cprN(latOdd, 1);
             m = Math.floor(getLonCPREven() * (cprNL(latOdd) - 1) - getLonCPROdd() * cprNL(latOdd) + 0.5);
             longitude = (360.0 / ni) * (m % ni + getLonCPROdd());
             latitude = latOdd;
-            
+
         }
 
         if (longitude > 180) {
             longitude = longitude - 360;
         }
-        
+
         // Round them off to 5 decimal place
         latitude = (double) Math.round(latitude * 100000) / 100000;
         longitude = (double) Math.round(longitude * 100000) / 100000;
-        
+
         position.put("LAT", latitude);
         position.put("LON", longitude);
         position.put("ALT", getAltitude(bitString1, bitString2));
-        
+
         System.out.println("LAT ::: " + position.get("LAT"));
         System.out.println("LON ::: " + position.get("LON"));
         System.out.println("ALT ::: " + position.get("ALT"));
-        
+
         return position;
     }
 
@@ -331,15 +329,14 @@ public class ADSBMessageUtils {
         if (latitude != 90 || latitude != -90) {
             int nz = 60;
             double a = 1 - Math.cos(Math.PI * 2 / nz);
-            double b = Math.pow(Math.cos(Math.PI / 180.0 * Math.abs(latitude)),2);
+            double b = Math.pow(Math.cos(Math.PI / 180.0 * Math.abs(latitude)), 2);
             double nl = 2 * Math.PI / (Math.acos(1 - a / b));
-            return (int)nl;
+            return (int) nl;
         }
 
         return 1;
     }
-    
-    
+
     private static double cprN(double latitude, double isOdd) {
 
         double nl = cprNL(latitude) - isOdd;
@@ -348,23 +345,94 @@ public class ADSBMessageUtils {
         }
         return 1;
     }
-    
-    public static double getAltitude(String bitString1, String bitString2){
+
+    public static double getAltitude(String bitString1, String bitString2) {
         double altitude = 0.0;
         String altitudeFrameBits = null;
         String qBit = "";
-        if(bitString1 != null && bitString2 != null && bitString1.length() == bitString2.length()){
+        if (bitString1 != null && bitString2 != null && bitString1.length() == bitString2.length()) {
             //altitude = ADSBUtils.binaryToInteger(bitString1.substring(40, 52));
             qBit = Character.toString(bitString1.charAt(47));
-            if(qBit != null && qBit.equals("1")){
-                altitudeFrameBits = bitString1.substring(40,47).concat(bitString1.substring(48, 52));
+            if (qBit != null && qBit.equals("1")) {
+                altitudeFrameBits = bitString1.substring(40, 47).concat(bitString1.substring(48, 52));
             } else {
                 return 0.0;
             }
             altitude = (ADSBUtils.binaryToInteger(altitudeFrameBits) * 25) - 1000;
-            
+
         }
         return altitude;
+    }
+
+    public static Map<String, Object> getVelocity(String bitString) {
+
+        int subType = ADSBUtils.binaryToInteger(bitString.substring(37, 40));
+
+        int east_west_dir = -1;
+        int velocityEW = -1;
+        int north_south_dir = -1;
+        int velocityNS = -1;
+        int actualVelocity = -1;
+        double heading = 0.0;
+        int verticalRateSign = -1;
+        int verticalRate = -1;
+        int rateOfClimbAndDescent = -1;
+
+        Map<String, Object> velocityAndHeading = new HashMap<>();;
+
+        if (subType == 1 || subType == 2) { // We are dealing with a subsonic plane
+
+            east_west_dir = ADSBUtils.binaryToInteger(Character.toString(bitString.charAt(45)));
+            int velocityRawValueEW = ADSBUtils.binaryToInteger(bitString.substring(46, 56));
+
+            north_south_dir = ADSBUtils.binaryToInteger(Character.toString(bitString.charAt(56)));
+            int velocityRawValueNS = ADSBUtils.binaryToInteger(bitString.substring(57, 67));
+
+            if (east_west_dir == 1) { //Flying East to West
+                velocityEW = -1 * (velocityRawValueEW - 1);
+            } else { //flying West to East
+                velocityEW = velocityRawValueEW - 1;
+            }
+
+            if (north_south_dir == 1) { //Flying North to South
+                velocityNS = -1 * (velocityRawValueNS - 1);
+            } else { //Flying South to North
+                velocityNS = velocityRawValueNS - 1;
+            }
+
+            actualVelocity = (int) Math.sqrt((velocityEW * velocityEW) + (velocityNS * velocityNS));
+            heading = Math.atan2(velocityEW, velocityNS) * (360 / (2 * Math.PI));
+
+            velocityAndHeading.put("TAG", "Ground Speed");
+
+        } else {
+
+            heading = ADSBUtils.binaryToInteger(bitString.substring(46, 56)) * 360 / 1024.0;
+            actualVelocity = ADSBUtils.binaryToInteger(bitString.substring(57, 67));
+            velocityAndHeading.put("TAG", "Airspeed");
+        }
+
+        verticalRateSign = ADSBUtils.binaryToInteger(Character.toString(bitString.charAt(68)));
+        verticalRate = ADSBUtils.binaryToInteger(bitString.substring(69, 78));
+
+        if (verticalRateSign == 1) {
+            rateOfClimbAndDescent = -1 * verticalRate;
+        } else {
+            rateOfClimbAndDescent = verticalRate;
+        }
+
+        if (heading < 0) {
+            heading += 360;
+        }
+        // round it up
+        heading = (double) Math.round(heading * 10) / 10;
+
+        velocityAndHeading.put("VERTICAL_RATE", verticalRate);
+        velocityAndHeading.put("RATE_OF_CLIMB_DESCENT", rateOfClimbAndDescent);
+        velocityAndHeading.put("VEL", actualVelocity);
+        velocityAndHeading.put("HEADING", heading);
+
+        return velocityAndHeading;
     }
 
     /**
@@ -401,10 +469,10 @@ public class ADSBMessageUtils {
                 case 16:
                 case 17:
                 case 18:
-                    // return Airborn position 9Baro Altitude)
+                    // return getAltitude()
                     break;
                 case 19:
-                    // return Airborne velocities
+                    // return getVelocity()
                     break;
                 case 20:
                 case 21:

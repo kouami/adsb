@@ -17,6 +17,8 @@ public class ADSBDirtyTests {
     
     //https://www.sussex.ac.uk/webteam/gateway/file.php?name=coote-proj.pdf&site=20
     
+    //https://github.com/junzis/pyModeS/blob/master/pyModeS/adsb.py
+    
     /**
      * @param args the command line arguments
      */
@@ -50,6 +52,12 @@ public class ADSBDirtyTests {
         //System.out.println("Get Altitude " + ADSBMessageUtils.getAltitude(message2, message3));
         
         System.out.println("Get Position " + ADSBMessageUtils.getCPR2Position(message2, message3));
+        
+        String message4 = ADSBUtils.hexToBinary("8D485020994409940838175B284F");
+        System.out.println("Get Velocity " + ADSBMessageUtils.getVelocity(message4));
+        
+        String message5 = ADSBUtils.hexToBinary("8DA05F219B06B6AF189400CBC33F");
+        System.out.println("Get Velocity " + ADSBMessageUtils.getVelocity(message5));
         
         
     }
